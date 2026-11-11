@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmacia Inteligente - Red de Ambulatorios</title>
+    <link rel="manifest" href="manifest.json">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg-deep: #050814;
+            --card-glass: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --neon-pink: #ff2a8d;
+            --neon-cyan: #00f2fe;
+            --neon-purple: #7f00ff;
+            --text-color: #ffffff;
+            --text-dim: #94a3b8;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 20%, #1e1b4b 0%, var(--bg-deep) 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glass-box {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(127, 0, 255, 0.15);
+        }
+
+        .glass-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4), inset 0 2px 5px rgba(0,0,0,0.5);
+            outline: none;
+        }
+
+        .neon-btn {
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            color: white;
+            border: none;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 25px rgba(0, 242, 254, 0.3);
+        }
+
+        .neon-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0, 242, 254, 0.5);
+        }
+
+        .table-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .table-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+        }
+        .table-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        .table-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-cyan);
+        }
+    </style>
+</head>
+<body class="p-3 sm:p-6 relative">
+
+    <!-- MODAL DE LOGIN / ACCESO SEGURO -->
+    <div id="modalLogin" class="fixed inset-0 bg-slate-950/95 z-50 flex items-center justify-center p-4 backdrop-blur-xl">
+        <div class="glass-box rounded-3xl max-w-md w-full p-8 space-y-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500"></div>
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-gradient-to-br from-cyan-500/20 to-purple-500/10 border border-cyan-500/40 rounded-2xl flex items-center justify-center mx-auto mb-3 text-3xl shadow-inner">🏥</div>
+                <h2 class="text-xl font-extrabold uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500">Acceso a Farmacia</h2>
+                <p class="text-xs text-slate-400">Sistema Dinámico de Control y Suministros</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-cyan-300 mb-1.5 uppercase tracking-wider">Cédula del Encargado:</label>
+                    <input type="text" id="loginCedula" placeholder="Ingrese su Cédula" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-cyan-300 mb-1.5 uppercase tracking-wider">Contraseña:</label>
+                    <input type="password" id="loginClave" placeholder="••••" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100">
+                </div>
+                
+                <button onclick="iniciarSesionEncargado()" class="w-full neon-btn py-3.5 rounded-2xl text-sm cursor-pointer tracking-wider">
+                    Iniciar Sesión en el Sistema
+                </button>
+
+                <div class="pt-3 border-t border-slate-800 text-center">
+                    <button onclick="abrirModalAdmin()" class="text-xs text-slate-400 hover:text-cyan-300 transition underline cursor-pointer">
+                        🛡️ Panel de Administración (Crear Cuentas de Acceso)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE ADMINISTRACIÓN (CREAR CUENTAS) -->
+    <div id="modalAdmin" class="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="glass-box rounded-3xl max-w-md w-full p-6 space-y-4 relative border-pink-500/40">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-500 to-purple-500"></div>
+            <div class="text-center">
+                <span class="text-2xl mb-1 inline-block">🛡️</span>
+                <h3 class="text-base font-extrabold text-pink-400 uppercase tracking-wide">Panel de Administración</h3>
+                <p class="text-xs text-slate-400">Autorizar y registrar nueva cuenta de farmacia</p>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">PIN de Administrador:</label>
+                    <input type="password" id="adminPin" placeholder="PIN Secreto (1234)" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-sm text-slate-100">
+                </div>
+                <hr class="border-slate-800">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Cédula del Encargado:</label>
+                    <input type="text" id="adminNuevaCedula" placeholder="Ingrese Cédula" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-sm text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre Completo:</label>
+                    <input type="text" id="adminNuevoNombre" placeholder="Ej: Lic. María Pérez" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-sm text-slate-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Contraseña Temporal:</label>
+                    <input type="password" id="adminNuevaClave" placeholder="Contraseña inicial" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-sm text-slate-100">
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button onclick="cerrarModalAdmin()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
+                    <button onclick="crearCuentaPorAdmin()" class="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-2.5 rounded-xl text-xs shadow-lg">Crear Cuenta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CAMBIAR CLAVE INTERNO -->
+    <div id="modalClave" class="fixed inset-0 bg-slate-950/90 z-50 flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="glass-box rounded-3xl max-w-sm w-full p-6 space-y-4 relative">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 to-teal-400"></div>
+            <h3 class="text-sm font-extrabold text-cyan-300 uppercase tracking-wide">🔑 Cambiar Contraseña</h3>
+            <p class="text-xs text-slate-400">Por seguridad, solo podrás cambiarla una vez cada 30 minutos.</p>
+            <input type="password" id="nuevaClaveInput" placeholder="Nueva contraseña" class="w-full glass-input rounded-xl px-3.5 py-3 text-sm text-slate-100">
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="document.getElementById('modalClave').classList.add('hidden')" class="bg-slate-800 text-white text-xs px-4 py-2.5 rounded-xl">Cancelar</button>
+                <button onclick="guardarNuevaClave()" class="neon-btn text-xs px-4 py-2.5 rounded-xl font-bold shadow-md">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CALCULADORA -->
+    <div id="modalCalculadora" class="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="glass-box rounded-3xl max-w-xs w-full p-6 space-y-4 relative border-cyan-500/40">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 to-indigo-400"></div>
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <h3 class="text-xs font-bold text-cyan-300 uppercase tracking-wide">🧮 Calculadora de Dosis e Inventario</h3>
+                <button onclick="cerrarCalculadora()" class="text-slate-400 hover:text-white font-bold text-sm bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center">✕</button>
+            </div>
+            
+            <input type="text" id="pantallaCalc" readonly class="w-full glass-input rounded-2xl p-3.5 text-right text-xl font-mono text-cyan-300 shadow-inner" value="0">
+            
+            <div class="grid grid-cols-4 gap-2 text-xs">
+                <button onclick="calcLimpiar()" class="bg-rose-950/60 text-rose-300 font-bold p-3.5 rounded-xl">C</button>
+                <button onclick="calcAgregar('/')" class="bg-slate-800 text-cyan-300 font-bold p-3.5 rounded-xl">÷</button>
+                <button onclick="calcAgregar('*')" class="bg-slate-800 text-cyan-300 font-bold p-3.5 rounded-xl">×</button>
+                <button onclick="calcAgregar('-')" class="bg-slate-800 text-cyan-300 font-bold p-3.5 rounded-xl">-</button>
+                <button onclick="calcAgregar('7')" class="bg-slate-900 p-3.5 rounded-xl font-bold">7</button>
+                <button onclick="calcAgregar('8')" class="bg-slate-900 p-3.5 rounded-xl font-bold">8</button>
+                <button onclick="calcAgregar('9')" class="bg-slate-900 p-3.5 rounded-xl font-bold">9</button>
+                <button onclick="calcAgregar('+')" class="bg-slate-800 text-cyan-300 font-bold p-3.5 rounded-xl row-span-2 flex items-center justify-center">+</button>
+                <button onclick="calcAgregar('4')" class="bg-slate-900 p-3.5 rounded-xl font-bold">4</button>
+                <button onclick="calcAgregar('5')" class="bg-slate-900 p-3.5 rounded-xl font-bold">5</button>
+                <button onclick="calcAgregar('6')" class="bg-slate-900 p-3.5 rounded-xl font-bold">6</button>
+                <button onclick="calcAgregar('1')" class="bg-slate-900 p-3.5 rounded-xl font-bold">1</button>
+                <button onclick="calcAgregar('2')" class="bg-slate-900 p-3.5 rounded-xl font-bold">2</button>
+                <button onclick="calcAgregar('3')" class="bg-slate-900 p-3.5 rounded-xl font-bold">3</button>
+                <button onclick="calcCalcular()" class="neon-btn font-bold p-3.5 rounded-xl row-span-2 flex items-center justify-center shadow-lg">=</button>
+                <button onclick="calcAgregar('0')" class="bg-slate-900 col-span-2 p-3.5 rounded-xl font-bold">0</button>
+                <button onclick="calcAgregar('.')" class="bg-slate-900 p-3.5 rounded-xl font-bold">.</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PANTALLA / MODAL DE REPORTES ESTILO LIBRO DE INVENTARIO -->
+    <div id="pantalla-reporte" style="display: none;" class="fixed inset-0 bg-slate-950/95 z-50 p-4 sm:p-8 overflow-y-auto backdrop-blur-xl">
+        <div class="max-w-6xl mx-auto space-y-6">
+            
+            <!-- Encabezado del Reporte -->
+            <div class="glass-box p-5 rounded-3xl flex flex-wrap justify-between items-center gap-4 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-cyan-400 to-pink-500"></div>
+                <div>
+                    <h3 id="tituloReporteEmpresa" class="text-base font-extrabold text-cyan-300 uppercase tracking-wide">REPORTE GENERAL DE ENTREGAS</h3>
+                    <p class="text-xs text-slate-400">Control de salidas y alertas logísticas de reabastecimiento</p>
+                </div>
+                <button onclick="cerrarHistorial()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer border border-slate-700">⬅ VOLVER AL INVENTARIO</button>
+            </div>
+
+            <!-- SECCIÓN DE ALERTAS INTELIGENTES DE REABASTECIMIENTO -->
+            <div class="glass-box p-5 rounded-3xl space-y-3 border-amber-500/40">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-extrabold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                        <span>🚨 Alertas Logísticas: Insumos que Deben Pedirse a la Central</span>
+                    </h4>
+                    <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-full font-bold">Monitoreo Automático</span>
+                </div>
+                <div id="listaAlertasReabastecimiento" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <!-- Se llena automáticamente con lógica de stock <= límite -->
+                </div>
+            </div>
+
+            <!-- Tabla de Reporte Solicitada (Fecha, Medicamento, Cant. Llevada) -->
+            <div class="overflow-x-auto table-scrollbar glass-box rounded-3xl shadow-2xl max-h-[50vh]">
+                <table class="w-full text-left text-xs border-collapse min-w-[700px]">
+                    <thead class="bg-slate-950 text-cyan-300 sticky top-0 uppercase text-[10px] tracking-widest border-b border-slate-800 z-10">
+                        <tr>
+                            <th class="p-3.5 border-r border-slate-800 text-center">N°</th>
+                            <th class="p-3.5 border-r border-slate-800">FECHA</th>
+                            <th class="p-3.5 border-r border-slate-800">MEDICAMENTO</th>
+                            <th class="p-3.5 border-r border-slate-800 text-center">CANT. LLEVADA</th>
+                            <th class="p-3.5">PACIENTE / DETALLE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpo-historial" class="divide-y divide-slate-800/60 text-slate-200">
+                        <!-- Registros de entregas -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Resumen Inferior -->
+            <div class="glass-box p-5 rounded-3xl flex flex-wrap justify-between items-center gap-4 text-xs">
+                <p class="text-slate-400">Total Unidades Entregadas Registradas: <span id="totalUnidadesReporte" class="font-bold text-cyan-400 text-sm">0</span></p>
+                <button onclick="enviarReporteDiaWhatsApp()" class="neon-btn font-bold px-5 py-3 rounded-2xl transition cursor-pointer">
+                    <span>📱 Compartir Reporte y Alertas por WhatsApp</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL DE EDICIÓN DE MEDICAMENTO -->
+    <div id="modalEditar" class="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4 hidden backdrop-blur-md">
+        <div class="glass-box rounded-3xl max-w-md w-full p-6 space-y-4 relative border-amber-500/40">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-amber-500 to-pink-500"></div>
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+                <h3 class="text-sm font-extrabold text-amber-400 uppercase tracking-wide">✏️ Editar Registro y Límite de Alerta</h3>
+                <button onclick="cerrarModalEditar()" class="text-slate-400 hover:text-white font-bold text-sm bg-slate-800 w-7 h-7 rounded-full flex items-center justify-center">✕</button>
+            </div>
+
+            <input type="hidden" id="editIdMedicamento">
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Nombre del Medicamento:</label>
+                    <input type="text" id="editNombre" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Nro. de Lote:</label>
+                    <input type="text" id="editLote" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-300 mb-1">Stock Actual:</label>
+                        <input type="number" id="editStock" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-amber-400 mb-1">Límite Pedido (Alerta):</label>
+                        <input type="number" id="editStockMinimo" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-amber-300 font-bold border-amber-600/50" placeholder="Ej: 15">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Cant. Total Entregada:</label>
+                    <input type="number" id="editTotalEntregado" class="w-full glass-input rounded-xl px-3.5 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-300 mb-1">Historial de Pacientes (un paciente por línea):</label>
+                    <textarea id="editHistorial" rows="3" class="w-full glass-input rounded-xl p-3 text-white text-xs" placeholder="Ej: Samuel Fuentes (C.I: 15234567)"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button onclick="cerrarModalEditar()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-xs">Cancelar</button>
+                <button onclick="guardarEdicionMedicamento()" class="flex-1 neon-btn py-2.5 rounded-xl text-xs shadow-lg">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="max-w-7xl mx-auto glass-box rounded-3xl overflow-hidden shadow-2xl">
+        
+        <!-- HEADER INSTITUCIONAL -->
+        <header class="bg-slate-900/90 text-white p-4 sm:p-6 border-b border-cyan-500/20 flex flex-wrap items-center justify-between gap-4 relative">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-teal-400 to-pink-500"></div>
+            
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-cyan-500/20 to-purple-500/10 rounded-2xl border border-cyan-500/30 text-2xl shadow-inner">
+                    💊
+                </div>
+                <div>
+                    <span id="labelEncargadoActivo" class="text-[11px] font-bold text-cyan-400 uppercase tracking-widest block">Encargado: No identificado</span>
+                    <h2 class="text-sm font-extrabold text-white tracking-wide">Control de Suministros Médicos</h2>
+                </div>
+            </div>
+
+            <div class="text-center flex-1 hidden lg:block">
+                <h1 class="text-base font-extrabold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-teal-300 to-pink-400">
+                    RED DE SALUD - INVENTARIO DE FARMACIA
+                </h1>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <input type="text" id="nombreAmbulatorio" placeholder="Nombre del Ambulatorio" oninput="guardarConfiguracion()" class="glass-input rounded-xl px-3 py-2 text-xs text-cyan-200 font-semibold w-32 sm:w-38">
+                <button onclick="abrirCalculadora()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-700 transition cursor-pointer">🧮 Calc</button>
+                <button onclick="abrirHistorial()" class="neon-btn text-xs font-bold px-3 py-2.5 rounded-xl transition cursor-pointer">📊 Reportes</button>
+                <button onclick="abrirModalCambiarClave()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer">🔑 Clave</button>
+                <button onclick="cerrarSesionEncargado()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-2 rounded-xl transition cursor-pointer">Salir</button>
+            </div>
+        </header>
+
+        <!-- MAIN CONTAINER -->
+        <main class="p-4 sm:p-8 space-y-6">
+
+            <!-- FORMULARIO DE REGISTRO / MOVIMIENTO -->
+            <form id="formInventario" onsubmit="agregarMovimiento(event)" class="glass-box rounded-3xl p-6 space-y-5 relative overflow-hidden border-cyan-500/30">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <h2 class="text-xs sm:text-sm font-extrabold text-cyan-300 uppercase tracking-widest pb-3 border-b border-slate-700/60 flex items-center gap-2">
+                    <span>📝 Registro de Ingresos / Entregas a Pacientes</span>
+                </h2>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label for="tipoMovimiento" class="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Tipo de Movimiento</label>
+                        <select id="tipoMovimiento" onchange="alternarCamposMovimiento()" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100 font-bold">
+                            <option value="ENTRADA" class="text-emerald-400 bg-slate-900">➕ Entrada (Llegada de Stock)</option>
+                            <option value="SALIDA" class="text-rose-400 bg-slate-900">➖ Entrega a Paciente</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="nombreMedicamento" class="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Nombre del Medicamento / Insumo</label>
+                        <input type="text" id="nombreMedicamento" required placeholder="Ej: Paracetamol 500mg, Losartán..." class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100">
+                    </div>
+                </div>
+
+                <!-- SECCIÓN INTEGRADA DE PACIENTE (SOLO ACTIVA SI ES SALIDA) -->
+                <div id="seccionPaciente" class="p-4 rounded-2xl bg-rose-950/10 border border-rose-500/30 hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-rose-300 mb-2 uppercase tracking-wider">👤 Nombre y Apellido del Paciente *</label>
+                        <input type="text" id="inputNombrePaciente" placeholder="Ej: Samuel Fuentes" class="w-full glass-input rounded-xl px-4 py-3 text-sm text-slate-100 border-rose-900/50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-rose-300 mb-2 uppercase tracking-wider">🪪 Cédula del Paciente *</label>
+                        <input type="text" id="inputCedulaPaciente" placeholder="Ej: V-15234567" class="w-full glass-input rounded-xl px-4 py-3 text-sm text-slate-100 border-rose-900/50">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    <div>
+                        <label for="cantidad" id="labelCantidad" class="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Cantidad (Stock / Entrega)</label>
+                        <input type="number" id="cantidad" required min="1" placeholder="Ej: 10" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100 font-semibold">
+                    </div>
+                    
+                    <!-- CAMPOS DE LOTE Y STOCK MÍNIMO -->
+                    <div id="contenedorLote">
+                        <label for="lote" class="block text-xs font-semibold text-slate-300 mb-2 uppercase tracking-wider">Nro. de Lote / Presentación</label>
+                        <input type="text" id="lote" placeholder="Ej: Lote #4582 / Blíster" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-slate-100">
+                    </div>
+                    <div id="contenedorStockMinimo">
+                        <label for="stockMinimo" class="block text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider">Límite de Alerta (Stock Mínimo)</label>
+                        <input type="number" id="stockMinimo" min="0" value="15" placeholder="Ej: 15" class="w-full glass-input rounded-2xl px-4 py-3 text-sm text-amber-300 font-semibold border-amber-600/50">
+                    </div>
+
+                    <div class="flex items-end justify-end sm:col-span-3">
+                        <button type="submit" class="w-full sm:w-auto neon-btn py-3 px-8 rounded-2xl text-xs uppercase tracking-wider">
+                            💾 Registrar Movimiento
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- TABLA DE INVENTARIO Y STOCK -->
+            <section class="glass-box rounded-3xl p-6 space-y-4 border-slate-800">
+                <div class="flex flex-wrap items-center justify-between pb-4 border-b border-slate-800 gap-3">
+                    <div>
+                        <h3 class="text-sm font-extrabold text-white tracking-wide">Stock Actual en Farmacia</h3>
+                        <p class="text-xs text-slate-400">Total Medicamentos Registrados: <span id="contadorStock" class="font-bold text-cyan-400">0</span></p>
+                    </div>
+                    
+                    <div class="flex-1 max-w-xs min-w-[220px]">
+                        <input type="text" id="inputBuscador" oninput="filtrarMedicamentos()" placeholder="🔍 Buscar medicamento..." class="w-full glass-input rounded-2xl px-4 py-2 text-xs text-cyan-200 font-semibold">
+                    </div>
+
+                    <div class="flex flex-wrap gap-2.5">
+                        <button onclick="enviarReporteWhatsApp()" class="neon-btn text-xs font-bold px-4 py-2.5 rounded-2xl transition cursor-pointer">
+                            <span>📱 Faltantes WhatsApp</span>
+                        </button>
+                        <button onclick="descargarRespaldoInventarioJSON()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-2xl border border-slate-700 transition cursor-pointer">💾 JSON</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto table-scrollbar border border-slate-800/80 rounded-2xl max-h-[450px]">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="bg-slate-950 text-cyan-300 sticky top-0 uppercase text-[10px] tracking-widest border-b border-slate-800 z-10">
+                            <tr>
+                                <th class="p-3.5 border-r border-slate-800/80 text-center">N°</th>
+                                <th class="p-3.5 border-r border-slate-800/80">Medicamento / Insumo</th>
+                                <th class="p-3.5 border-r border-slate-800/80">Lote</th>
+                                <th class="p-3.5 border-r border-slate-800/80 text-center">Stock Actual</th>
+                                <th class="p-3.5 border-r border-slate-800/80 text-center">Estatus (Alerta)</th>
+                                <th class="p-3.5 border-r border-slate-800/80 text-center">Cant. Total Entregada</th>
+                                <th class="p-3.5 border-r border-slate-800/80">Pacientes que han retirado (Historial)</th>
+                                <th class="p-3.5 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaInventario" class="divide-y divide-slate-800/60 bg-slate-900/40">
+                            <tr><td colspan="8" class="p-10 text-center text-slate-500 italic">No hay medicamentos registrados en este turno.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- BANNER DE NOTIFICACIÓN -->
+    <div id="modalNotificacion" class="fixed bottom-6 right-6 glass-box text-cyan-300 border-cyan-500/40 text-xs px-5 py-3.5 rounded-2xl shadow-2xl hidden z-50 backdrop-blur-md">
+        <span id="mensajeNotificacion"></span>
+    </div>
+
+    <script>
+        let encargadoActual = "";
+        let encargadoCedulaActual = "";
+        let inventarioMedicamentos = [];
+        let historialReporteSalidas = [];
+
+        window.onload = function() {
+            verificarSesionActiva();
+            alternarCamposMovimiento();
+        };
+
+        function alternarCamposMovimiento() {
+            const tipo = document.getElementById('tipoMovimiento').value;
+            const seccionPaciente = document.getElementById('seccionPaciente');
+            const nomPac = document.getElementById('inputNombrePaciente');
+            const cedPac = document.getElementById('inputCedulaPaciente');
+            
+            const labelCantidad = document.getElementById('labelCantidad');
+            const contenedorLote = document.getElementById('contenedorLote');
+            const contenedorStockMinimo = document.getElementById('contenedorStockMinimo');
+
+            if (tipo === 'SALIDA') {
+                seccionPaciente.classList.remove('hidden');
+                nomPac.required = true;
+                cedPac.required = true;
+                labelCantidad.textContent = "Cantidad que Lleva el Paciente";
+
+                contenedorLote.classList.add('hidden');
+                contenedorStockMinimo.classList.add('hidden');
+                document.getElementById('lote').required = false;
+                document.getElementById('stockMinimo').required = false;
+            } else {
+                seccionPaciente.classList.add('hidden');
+                nomPac.required = false;
+                cedPac.required = false;
+                nomPac.value = '';
+                cedPac.value = '';
+                labelCantidad.textContent = "Cantidad (Stock / Entrega)";
+
+                contenedorLote.classList.remove('hidden');
+                contenedorStockMinimo.classList.remove('hidden');
+            }
+        }
+
+        // --- SISTEMA DE LOGIN Y SEGURIDAD ---
+        function obtenerClaveStorageInventario() {
+            const amb = (document.getElementById('nombreAmbulatorio').value || 'general').trim().toLowerCase().replace(/\s+/g, '_');
+            return `inventarioMedicamentos_${encargadoCedulaActual}_${amb}`;
+        }
+
+        function obtenerClaveStorageHistorial() {
+            const amb = (document.getElementById('nombreAmbulatorio').value || 'general').trim().toLowerCase().replace(/\s+/g, '_');
+            return `historialReporteSalidas_${encargadoCedulaActual}_${amb}`;
+        }
+
+        function iniciarSesionEncargado() {
+            const cedula = document.getElementById('loginCedula').value.trim();
+            const clave = document.getElementById('loginClave').value.trim();
+            let cuentas = JSON.parse(localStorage.getItem('credencialesFarmaciaPorCedula')) || {};
+
+            if (!cedula || !clave) { alert("Ingrese Cédula y Contraseña"); return; }
+            if (!cuentas[cedula]) { alert("⚠️ Esta Cédula no está registrada."); return; }
+
+            if (cuentas[cedula].clave === clave) {
+                encargadoActual = cuentas[cedula].nombre;
+                encargadoCedulaActual = cedula;
+                localStorage.setItem('encargadoActualSesion', encargadoActual);
+                localStorage.setItem('encargadoActualCedula', cedula);
+
+                document.getElementById('modalLogin').style.display = 'none';
+                document.getElementById('labelEncargadoActivo').textContent = "Encargado: " + encargadoActual;
+
+                cargarDatosInventario();
+                mostrarNotificacion("Bienvenido/a " + encargadoActual);
+            } else { alert("❌ Contraseña incorrecta."); }
+        }
+
+        function verificarSesionActiva() {
+            const sesion = localStorage.getItem('encargadoActualSesion');
+            const cedula = localStorage.getItem('encargadoActualCedula');
+            if (sesion && cedula) {
+                encargadoActual = sesion;
+                encargadoCedulaActual = cedula;
+                document.getElementById('modalLogin').style.display = 'none';
+                document.getElementById('labelEncargadoActivo').textContent = "Encargado: " + sesion;
+                cargarDatosInventario();
+            } else { document.getElementById('modalLogin').style.display = 'flex'; }
+        }
+
+        function cerrarSesionEncargado() {
+            localStorage.removeItem('encargadoActualSesion');
+            localStorage.removeItem('encargadoActualCedula');
+            location.reload();
+        }
+
+        // --- PANEL DE ADMINISTRACIÓN Y CLAVE ---
+        function abrirModalAdmin() { document.getElementById('modalAdmin').classList.remove('hidden'); }
+        function cerrarModalAdmin() { document.getElementById('modalAdmin').classList.add('hidden'); }
+        function crearCuentaPorAdmin() {
+            const pin = document.getElementById('adminPin').value.trim();
+            const cedula = document.getElementById('adminNuevaCedula').value.trim();
+            const nombre = document.getElementById('adminNuevoNombre').value.trim();
+            const clave = document.getElementById('adminNuevaClave').value.trim();
+
+            if (pin !== "1234") { alert("❌ PIN incorrecto."); return; }
+            if (!cedula || !nombre || !clave) { alert("⚠️ Complete todos los campos."); return; }
+
+            let cuentas = JSON.parse(localStorage.getItem('credencialesFarmaciaPorCedula')) || {};
+            cuentas[cedula] = { nombre: nombre, clave: clave };
+            localStorage.setItem('credencialesFarmaciaPorCedula', JSON.stringify(cuentas));
+            alert(`✅ Cuenta creada para ${nombre}.`);
+            cerrarModalAdmin();
+        }
+
+        function abrirModalCambiarClave() { document.getElementById('modalClave').classList.remove('hidden'); }
+        function guardarNuevaClave() {
+            const nueva = document.getElementById('nuevaClaveInput').value.trim();
+            if (!nueva) return;
+            let cuentas = JSON.parse(localStorage.getItem('credencialesFarmaciaPorCedula')) || {};
+            if (cuentas[encargadoCedulaActual]) {
+                cuentas[encargadoCedulaActual].clave = nueva;
+                localStorage.setItem('credencialesFarmaciaPorCedula', JSON.stringify(cuentas));
+            }
+            alert("✅ Contraseña actualizada.");
+            document.getElementById('modalClave').classList.add('hidden');
+        }
+
+        // --- CALCULADORA ---
+        function abrirCalculadora() { document.getElementById('modalCalculadora').classList.remove('hidden'); }
+        function cerrarCalculadora() { document.getElementById('modalCalculadora').classList.add('hidden'); }
+        function calcAgregar(val) {
+            let pant = document.getElementById('pantallaCalc');
+            if (pant.value === '0' || pant.value === 'Error') pant.value = '';
+            pant.value += val;
+        }
+        function calcLimpiar() { document.getElementById('pantallaCalc').value = '0'; }
+        function calcCalcular() {
+            let pant = document.getElementById('pantallaCalc');
+            try { pant.value = eval(pant.value); } catch(e) { pant.value = 'Error'; }
+        }
+
+        // --- INVENTARIO Y LOGÍSTICA ---
+        function cargarDatosInventario() {
+            const ambGuardado = localStorage.getItem('ambulatorioFarmaciaNombre_' + encargadoCedulaActual) || '';
+            document.getElementById('nombreAmbulatorio').value = ambGuardado;
+            inventarioMedicamentos = JSON.parse(localStorage.getItem(obtenerClaveStorageInventario())) || [];
+            historialReporteSalidas = JSON.parse(localStorage.getItem(obtenerClaveStorageHistorial())) || [];
+            renderizarTablaInventario(inventarioMedicamentos);
+        }
+
+        function guardarConfiguracion() {
+            const ambNombre = document.getElementById('nombreAmbulatorio').value;
+            localStorage.setItem('ambulatorioFarmaciaNombre_' + encargadoCedulaActual, ambNombre);
+            inventarioMedicamentos = JSON.parse(localStorage.getItem(obtenerClaveStorageInventario())) || [];
+            historialReporteSalidas = JSON.parse(localStorage.getItem(obtenerClaveStorageHistorial())) || [];
+            renderizarTablaInventario(inventarioMedicamentos);
+        }
+
+        function filtrarMedicamentos() {
+            const texto = document.getElementById('inputBuscador').value.toLowerCase().trim();
+            const filtrados = inventarioMedicamentos.filter(m => m.nombre.toLowerCase().includes(texto) || m.lote.toLowerCase().includes(texto));
+            renderizarTablaInventario(filtrados);
+        }
+
+        function agregarMovimiento(e) {
+            e.preventDefault();
+            const nombre = document.getElementById('nombreMedicamento').value.trim();
+            const tipo = document.getElementById('tipoMovimiento').value;
+            const cantidad = parseInt(document.getElementById('cantidad').value) || 0;
+            
+            if (!nombre || cantidad <= 0) { alert("⚠️ Ingrese un medicamento y cantidad válida."); return; }
+
+            let index = inventarioMedicamentos.findIndex(m => m.nombre.toLowerCase() === nombre.toLowerCase());
+            let fechaActual = new Date().toLocaleDateString('es-VE') + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (tipo === 'ENTRADA') {
+                const lote = document.getElementById('lote').value.trim() || 'S/N';
+                const stockMinimo = parseInt(document.getElementById('stockMinimo').value) || 15;
+
+                if (index !== -1) {
+                    inventarioMedicamentos[index].stock += cantidad;
+                    inventarioMedicamentos[index].stockMinimo = stockMinimo;
+                    inventarioMedicamentos[index].lote = lote;
+                    inventarioMedicamentos[index].ultimaActualizacion = new Date().toLocaleString();
+                } else {
+                    inventarioMedicamentos.push({
+                        id: Date.now(),
+                        nombre: nombre,
+                        lote: lote,
+                        stock: cantidad,
+                        stockMinimo: stockMinimo,
+                        totalEntregado: 0,
+                        historialPacientes: [],
+                        ultimaActualizacion: new Date().toLocaleString()
+                    });
+                }
+                mostrarNotificacion(`✅ Entrada registrada para ${nombre}`);
+            } else {
+                if (index === -1) {
+                    alert("⚠️ El medicamento no existe en el inventario para poder egresarlo.");
+                    return;
+                }
+
+                const nomPaciente = document.getElementById('inputNombrePaciente').value.trim();
+                const cedPaciente = document.getElementById('inputCedulaPaciente').value.trim();
+
+                if (!nomPaciente || !cedPaciente) {
+                    alert("⚠️ Ingrese el nombre y cédula del paciente.");
+                    return;
+                }
+
+                if (inventarioMedicamentos[index].stock < cantidad) {
+                    alert(`⚠️ Stock insuficiente en farmacia. Disponible actual: ${inventarioMedicamentos[index].stock} unidades.`);
+                    return;
+                }
+
+                inventarioMedicamentos[index].stock -= cantidad;
+                inventarioMedicamentos[index].totalEntregado = (inventarioMedicamentos[index].totalEntregado || 0) + cantidad;
+
+                if (!inventarioMedicamentos[index].historialPacientes) {
+                    inventarioMedicamentos[index].historialPacientes = [];
+                }
+                let infoPacienteCompleta = `${nomPaciente} (C.I: ${cedPaciente}) - Cant: ${cantidad}`;
+                inventarioMedicamentos[index].historialPacientes.push(infoPacienteCompleta);
+
+                historialReporteSalidas.push({
+                    fecha: fechaActual,
+                    medicamento: nombre,
+                    cantidadLlevada: cantidad,
+                    detalle: `${nomPaciente} (C.I: ${cedPaciente})`
+                });
+                localStorage.setItem(obtenerClaveStorageHistorial(), JSON.stringify(historialReporteSalidas));
+
+                mostrarNotificacion(`✅ Entrega registrada a ${nomPaciente}`);
+            }
+
+            guardarYActualizar();
+            document.getElementById('nombreMedicamento').value = '';
+            document.getElementById('cantidad').value = '';
+            document.getElementById('lote').value = '';
+            document.getElementById('inputNombrePaciente').value = '';
+            document.getElementById('inputCedulaPaciente').value = '';
+            document.getElementById('nombreMedicamento').focus();
+        }
+
+        function ajustarStock(id, cambio) {
+            let med = inventarioMedicamentos.find(m => m.id === id);
+            if (!med) return;
+            if (cambio < 0 && med.stock <= 0) {
+                alert("⚠️ El stock no puede ser menor a 0.");
+                return;
+            }
+
+            med.stock += cambio;
+            med.ultimaActualizacion = new Date().toLocaleString();
+            let fechaActual = new Date().toLocaleDateString('es-VE') + " " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (cambio < 0) {
+                let nomPac = prompt("Nombre y Apellido del Paciente que retira 1 unidad:", "Paciente General");
+                let cedPac = prompt("Cédula del Paciente:", "V-00000000");
+                if (!nomPac) nomPac = "Desconocido";
+                if (!cedPac) cedPac = "S/C";
+
+                let infoR = `${nomPac} (C.I: ${cedPac}) - Cant: 1`;
+                med.totalEntregado = (med.totalEntregado || 0) + 1;
+                if (!med.historialPacientes) med.historialPacientes = [];
+                med.historialPacientes.push(infoR);
+
+                historialReporteSalidas.push({
+                    fecha: fechaActual,
+                    medicamento: med.nombre,
+                    cantidadLlevada: 1,
+                    detalle: `${nomPac} (C.I: ${cedPac})`
+                });
+                localStorage.setItem(obtenerClaveStorageHistorial(), JSON.stringify(historialReporteSalidas));
+            }
+
+            guardarYActualizar();
+            mostrarNotificacion('🔄 Stock y acumulado actualizados');
+        }
+
+        function eliminarMedicamento(id) {
+            if (confirm('¿Desea eliminar este medicamento del inventario?')) {
+                inventarioMedicamentos = inventarioMedicamentos.filter(m => m.id !== id);
+                guardarYActualizar();
+                mostrarNotificacion('🗑️ Medicamento eliminado');
+            }
+        }
+
+        function abrirModalEditar(id) {
+            let med = inventarioMedicamentos.find(m => m.id === id);
+            if (!med) return;
+
+            document.getElementById('editIdMedicamento').value = med.id;
+            document.getElementById('editNombre').value = med.nombre;
+            document.getElementById('editLote').value = med.lote || '';
+            document.getElementById('editStock').value = med.stock;
+            document.getElementById('editStockMinimo').value = med.stockMinimo !== undefined ? med.stockMinimo : 15;
+            document.getElementById('editTotalEntregado').value = med.totalEntregado || 0;
+            
+            let historialTexto = med.historialPacientes ? med.historialPacientes.join('\n') : '';
+            document.getElementById('editHistorial').value = historialTexto;
+
+            document.getElementById('modalEditar').classList.remove('hidden');
+        }
+
+        function cerrarModalEditar() {
+            document.getElementById('modalEditar').classList.add('hidden');
+        }
+
+        function guardarEdicionMedicamento() {
+            let id = parseInt(document.getElementById('editIdMedicamento').value);
+            let med = inventarioMedicamentos.find(m => m.id === id);
+            if (!med) return;
+
+            med.nombre = document.getElementById('editNombre').value.trim();
+            med.lote = document.getElementById('editLote').value.trim() || 'S/N';
+            med.stock = parseInt(document.getElementById('editStock').value) || 0;
+            med.stockMinimo = parseInt(document.getElementById('editStockMinimo').value) || 15;
+            med.totalEntregado = parseInt(document.getElementById('editTotalEntregado').value) || 0;
+
+            let textoHistorial = document.getElementById('editHistorial').value.trim();
+            med.historialPacientes = textoHistorial ? textoHistorial.split('\n').map(p => p.trim()).filter(p => p !== '') : [];
+            med.ultimaActualizacion = new Date().toLocaleString();
+
+            guardarYActualizar();
+            cerrarModalEditar();
+            mostrarNotificacion('✏️ Medicamento, límite y registros actualizados');
+        }
+
+        function guardarYActualizar() {
+            localStorage.setItem(obtenerClaveStorageInventario(), JSON.stringify(inventarioMedicamentos));
+            filtrarMedicamentos();
+        }
+
+        function renderizarTablaInventario(lista) {
+            const tbody = document.getElementById('cuerpoTablaInventario');
+            document.getElementById('contadorStock').textContent = inventarioMedicamentos.length;
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-10 text-center text-slate-500 italic">No se encontraron medicamentos.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = lista.map((m, index) => {
+                let limiteAlerta = (m.stockMinimo !== undefined && m.stockMinimo !== null) ? m.stockMinimo : 15;
+                let esCritico = m.stock <= limiteAlerta;
+
+                let estadoBadge = esCritico 
+                    ? `<span class="bg-rose-500/20 text-rose-400 border border-rose-500/40 px-3 py-1 rounded-full text-[10px] font-extrabold shadow-md animate-pulse">🚨 PEDIR MÁS (≤ ${limiteAlerta})</span>`
+                    : `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded-full text-[10px] font-extrabold">✅ ÓPTIMO</span>`;
+
+                let totalEntregas = (m.totalEntregado !== undefined && m.totalEntregado > 0) ? `-${m.totalEntregado}` : '0';
+                
+                let selectHistorial = `<span class="text-slate-500 italic">Ninguno</span>`;
+                if (m.historialPacientes && m.historialPacientes.length > 0) {
+                    let opcionesHTML = m.historialPacientes.map(p => `<option>${p}</option>`).join('');
+                    selectHistorial = `
+                        <select class="glass-input rounded-lg px-2 py-1 text-xs text-cyan-200 w-full">
+                            <option value="">📋 Ver ${m.historialPacientes.length} retiro(s)</option>
+                            ${opcionesHTML}
+                        </select>
+                    `;
+                }
+
+                return `
+                    <tr class="hover:bg-slate-800/60 transition border-b border-slate-800/80 text-slate-200">
+                        <td class="p-3.5 text-center font-bold text-slate-400">${index + 1}</td>
+                        <td class="p-3.5 font-semibold text-cyan-200">${m.nombre}</td>
+                        <td class="p-3.5 text-slate-300">${m.lote}</td>
+                        <td class="p-3.5 text-center font-extrabold text-sm ${esCritico ? 'text-rose-400 bg-rose-500/10 rounded-lg' : 'text-emerald-300'}">${m.stock}</td>
+                        <td class="p-3.5 text-center">${estadoBadge}</td>
+                        <td class="p-3.5 text-center font-bold text-rose-400">${totalEntregas}</td>
+                        <td class="p-3.5 text-xs text-slate-200">${selectHistorial}</td>
+                        <td class="p-3.5 text-center whitespace-nowrap">
+                            <button onclick="abrirModalEditar(${m.id})" title="Editar Medicamento y Límite" class="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-2.5 py-1.5 rounded-xl mr-1 transition">✏️</button>
+                            <button onclick="ajustarStock(${m.id}, 1)" title="Sumar 1" class="bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold px-2.5 py-1.5 rounded-xl mr-1 transition">➕</button>
+                            <button onclick="ajustarStock(${m.id}, -1)" title="Restar 1" class="bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold px-2.5 py-1.5 rounded-xl mr-1 transition">➖</button>
+                            <button onclick="eliminarMedicamento(${m.id})" title="Eliminar" class="text-rose-400 hover:text-rose-200 font-bold px-2.5 py-1.5 rounded-xl hover:bg-slate-800">✕</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- MÓDULO DE REPORTES Y ALERTAS DE REABASTECIMIENTO ---
+        function abrirHistorial() {
+            historialReporteSalidas = JSON.parse(localStorage.getItem(obtenerClaveStorageHistorial())) || [];
+            inventarioMedicamentos = JSON.parse(localStorage.getItem(obtenerClaveStorageInventario())) || [];
+
+            const ambNombre = document.getElementById('nombreAmbulatorio').value.trim() || 'Ambulatorio General';
+            document.getElementById('tituloReporteEmpresa').textContent = `${ambNombre.toUpperCase()} - REPORTE GENERAL DE ENTREGAS`;
+
+            const cuerpoHistorial = document.getElementById('cuerpo-historial');
+            const listaAlertas = document.getElementById('listaAlertasReabastecimiento');
+            
+            let totalUnidadesGeneral = 0;
+
+            if (historialReporteSalidas.length === 0) {
+                cuerpoHistorial.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500 italic">No hay entregas registradas en el historial.</td></tr>`;
+            } else {
+                cuerpoHistorial.innerHTML = historialReporteSalidas.map((item, idx) => {
+                    totalUnidadesGeneral += item.cantidadLlevada;
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition border-b border-slate-800/60">
+                            <td class="p-3 text-center font-bold text-slate-400">${idx + 1}</td>
+                            <td class="p-3 text-slate-300">${item.fecha}</td>
+                            <td class="p-3 font-semibold text-cyan-200">${item.medicamento}</td>
+                            <td class="p-3 text-center font-bold text-rose-400">-${item.cantidadLlevada}</td>
+                            <td class="p-3 text-slate-300">${item.detalle}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            document.getElementById('totalUnidadesReporte').textContent = totalUnidadesGeneral;
+
+            let medicamentosPedir = inventarioMedicamentos.filter(m => {
+                let limite = m.stockMinimo !== undefined ? m.stockMinimo : 15;
+                return m.stock <= limite;
+            });
+
+            if (medicamentosPedir.length === 0) {
+                listaAlertas.innerHTML = `
+                    <div class="col-span-full bg-emerald-950/20 border border-emerald-500/30 p-3 rounded-2xl text-center text-emerald-300 text-xs">
+                        ✨ Todos los insumos médicos se encuentran en niveles óptimos. No es necesario pedir más por ahora.
+                    </div>
+                `;
+            } else {
+                listaAlertas.innerHTML = medicamentosPedir.map(m => {
+                    let limite = m.stockMinimo !== undefined ? m.stockMinimo : 15;
+                    return `
+                        <div class="bg-rose-950/30 border border-rose-500/40 p-3 rounded-2xl flex justify-between items-center text-xs">
+                            <div>
+                                <span class="font-extrabold text-white block">${m.nombre}</span>
+                                <span class="text-rose-300 text-[11px]">Stock Actual: <b>${m.stock}</b> (Límite: ${limite})</span>
+                            </div>
+                            <span class="bg-rose-500 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg uppercase tracking-wider">¡PEDIR YA!</span>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            document.getElementById('pantalla-reporte').style.display = 'block';
+        }
+
+        function cerrarHistorial() {
+            document.getElementById('pantalla-reporte').style.display = 'none';
+        }
+
+        function enviarReporteDiaWhatsApp() {
+            const amb = document.getElementById('nombreAmbulatorio').value.trim() || 'Ambulatorio General';
+            historialReporteSalidas = JSON.parse(localStorage.getItem(obtenerClaveStorageHistorial())) || [];
+            inventarioMedicamentos = JSON.parse(localStorage.getItem(obtenerClaveStorageInventario())) || [];
+
+            let texto = `📋 *REPORTE Y REABASTECIMIENTO*%0A🏥 *Centro:* ${amb.toUpperCase()}%0A📅 *Fecha:* ${new Date().toLocaleDateString()}%0A%0A`;
+            
+            if (historialReporteSalidas.length > 0) {
+                texto += `📦 *ÚLTIMAS ENTREGAS:*%0A`;
+                historialReporteSalidas.slice(-10).forEach((e, i) => {
+                    texto += `${i+1}. *${e.medicamento}* (-${e.cantidadLlevada}) - ${e.detalle}%0A`;
+                });
+                texto += `%0A`;
+            }
+
+            let criticos = inventarioMedicamentos.filter(m => m.stock <= (m.stockMinimo !== undefined ? m.stockMinimo : 15));
+            if (criticos.length > 0) {
+                texto += `🚨 *URGENTE: INSUMOS QUE SE DEBEN PEDIR:*%0A`;
+                criticos.forEach(m => {
+                    texto += `• *${m.nombre}* | Stock: ${m.stock} (Límite: ${m.stockMinimo})%0A`;
+                });
+            } else {
+                texto += `✨ Inventario estable sin alertas de pedido.%0A`;
+            }
+
+            window.open(`https://wa.me/?text=${texto}`, '_blank');
+            mostrarNotificacion('📱 Reporte y alertas listos para WhatsApp.');
+        }
+
+        function enviarReporteWhatsApp() {
+            const amb = document.getElementById('nombreAmbulatorio').value.trim() || 'Ambulatorio General';
+            if (inventarioMedicamentos.length === 0) { alert("No hay datos."); return; }
+            let criticos = inventarioMedicamentos.filter(m => m.stock <= (m.stockMinimo !== undefined ? m.stockMinimo : 15));
+
+            let texto = `🏥 *REPORTE DE FALTANTES - ${amb.toUpperCase()}*%0A`;
+            if (criticos.length > 0) {
+                texto += `🚨 *URGENTE (HAY QUE PEDIR MÁS):*%0A`;
+                criticos.forEach(m => { texto += `• ${m.nombre} (Stock: ${m.stock} - Límite: ${m.stockMinimo})%0A`; });
+            } else { texto += `✨ Todo en niveles óptimos.%0A`; }
+            window.open(`https://wa.me/?text=${texto}`, '_blank');
+            mostrarNotificacion('📱 Faltantes listos para WhatsApp.');
+        }
+
+        function descargarRespaldoInventarioJSON() {
+            if (inventarioMedicamentos.length === 0) { alert("Sin datos."); return; }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(inventarioMedicamentos, null, 2));
+            const a = document.createElement('a');
+            a.setAttribute("href", dataStr);
+            a.setAttribute("download", `Inventario_Farmacia.json`);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            mostrarNotificacion('💾 Respaldo descargado.');
+        }
+
+        function mostrarNotificacion(msg) {
+            const modal = document.getElementById('modalNotificacion');
+            document.getElementById('mensajeNotificacion').textContent = msg;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.add('hidden'); }, 3500);
+        }
+    </script>
+</body>
+</html>
